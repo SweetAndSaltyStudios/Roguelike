@@ -3,14 +3,18 @@
 # \__ \\ \/\/ /| _|| _|  | |    / _ \| .` | |) | \__ \/ _ \| |__| |  \ V /  \__ \ | | | |_| | |) | | (_) \__ \
 # |___/ \_/\_/ |___|___| |_|   /_/ \_\_|\_|___/  |___/_/ \_\____|_|   |_|   |___/ |_|  \___/|___/___\___/|___/
 
+## TUTORIAL - PART 21 -USING ITEMS 23:37 ->
+## USING ITEM FUNCTION DOES NOT WORK!
+
 # 3rd party modules
 import tcod as libtcodpy
 import pygame
 
 # game files
-import Constants
-import Inputs
-import AI
+import constants
+import inputs
+import helpers
+import ui
 
 #  ___ _____ ___ _   _  ___ _____ ___
 # / __|_   _| _ \ | | |/ __|_   _/ __|
@@ -24,6 +28,38 @@ class struct_Tile:
         self.isWalkable = isWalkable
         self.isExplored = False
 
+
+class struct_Assets:
+
+    def __init__(self):
+
+        self.player_sprite_sheet = obj_Sprite_sheet(
+            "E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\characters.png")
+
+        self.enemy_sprite_sheet = obj_Sprite_sheet(
+            "E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\characters.png")
+
+        self.PLAYER_ANIMATION = self.player_sprite_sheet.get_animation(
+            'j', 1, 8, 8, 2, (16, 16))
+        self.ENEMY_ANIMATION = self.enemy_sprite_sheet.get_animation(
+            'f', 3, 8, 8, 2, (16, 16))
+
+        self.GROUND_SPRITE = pygame.image.load(
+            'E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\Ground.png')
+        self.WALL_SPRITE = pygame.image.load(
+            'E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\Wall.png')
+
+        self.GROUND_EXPLORED_SPRITE = pygame.image.load(
+            'E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\Tile_explored.png')
+        self.WALL_EXPLORED_SPRITE = pygame.image.load(
+            'E:\Python\Projects\Roguelike\Roguelike\Resources\Sprites\Tile_unexplored.png')
+
+        # FONTS
+        self.DEFAULT_FONT = pygame.font.Font(None, 22)
+        self.PIXEL_FONT = pygame.font.Font(
+            'E:\Python\Projects\Roguelike\Roguelike\Resources\Fonts\Pixeled.ttf', 12)
+
+
 #   ___  ___    _ ___ ___ _____ ___
 #  / _ \| _ )_ | | __/ __|_   _/ __|
 # | (_) | _ \ || | _| (__  | | \__ \
@@ -32,27 +68,129 @@ class struct_Tile:
 
 class obj_Entity:
 
-    def __init__(self, x, y, name_object, sprite, creature=None, ai=None):
+    def __init__(
+            self,
+            x,
+            y,
+            name_object,
+            animation,
+            creature=None,
+            ai=None,
+            container=None,
+            item=None):
+
         self.x = x
         self.y = y
         self.name_object = name_object
-        self.sprite = sprite
+        self.animation = animation
+        self.animation_speed = 0.5
+
+        self.animation_rate = self.animation_speed / len(self.animation)
+        self.animation_timer = 0.0
+        self.current_sprite_index = 0
 
         self.creature = creature
-        if creature:
-            creature.owner = self
+        if self.creature:
+            self.creature.owner = self
 
         self.ai = ai
-        if ai:
-            ai.owner = self
+        if self.ai:
+            self.ai.owner = self
+
+        self.container = container
+        if self.container:
+            self.container.owner = self
+
+        self.item = item
+        if self.item:
+            self.item.owner = self
 
     def draw(self):
+        is_visible = libtcodpy.map_is_in_fov(FIELD_OF_VIEW_MAP, self.x, self.y)
 
-        isVisible = libtcodpy.map_is_in_fov(FIELD_OF_VIEW_MAP, self.x, self.y)
+        if is_visible:
+            if len(self.animation) == 1:
+                SURFACE_MAIN.blit(
+                    self.animation[0], (self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
 
-        if isVisible:
-            SURFACE_MAIN.blit(
-                self.sprite, (self.x*Constants.CELL_WIDTH, self.y*Constants.CELL_HEIGHT))
+            elif len(self.animation) > 1:
+
+                if CLOCK.get_fps() > 0.0:
+                    self.animation_timer += 1 / CLOCK.get_fps()
+
+                if self.animation_timer >= self.animation_rate:
+                    self.animation_timer = 0.0
+
+                    if self.current_sprite_index >= len(self.animation) - 1:
+                        self.current_sprite_index = 0
+
+                    else:
+                        self.current_sprite_index += 1
+
+                SURFACE_MAIN.blit(self.animation[self.current_sprite_index], (
+                    self.x * constants.CELL_WIDTH, self.y * constants.CELL_HEIGHT))
+
+
+class obj_Game:
+    def __init__(self):
+        self.curret_map = map_create()
+        self.current_game_objects = []
+        self.game_message_history = []
+
+
+class obj_Sprite_sheet:
+    def __init__(self, file_name):
+        self.sprite_sheet = pygame.image.load(file_name).convert_alpha()
+        self.tile_dictionary = {'a': 1, 'b': 2, 'c': 3, 'd': 4,
+                                'e': 5, 'f': 6, 'g': 7, 'h': 8,
+                                'i': 9, 'j': 10, 'k': 11, 'l': 12,
+                                'm': 13, 'n': 14, 'o': 15, 'p': 16}
+
+    def get_sprite(self, column, row,
+                   width=constants.CELL_WIDTH,
+                   height=constants.CELL_HEIGHT,
+                   scale=None):
+
+        sprite_list = []
+
+        sprite = pygame.Surface([width, height]).convert()
+
+        sprite.blit(self.sprite_sheet, (0, 0),
+                    (self.tile_dictionary[column] * width, row * height, width, height))
+
+        if scale:
+            (new_width, new_height) = scale
+            sprite = pygame.transform.scale(sprite, (new_width, new_height))
+
+        sprite_list.append(sprite)
+
+        return sprite_list
+
+    def get_animation(self, column, row,
+                      width=constants.CELL_WIDTH,
+                      height=constants.CELL_HEIGHT,
+                      animation_lenght=1,
+                      scale=None):
+
+        sprite_list = []
+
+        for i in range(animation_lenght):
+
+            sprite = pygame.Surface([width, height]).convert()
+
+            sprite.blit(self.sprite_sheet, (0, 0), (
+                self.tile_dictionary[column] * width + (width * i), row * height, width, height))
+
+            sprite.set_colorkey(constants.COLOR_BLACK)
+
+            if scale:
+                (new_width, new_height) = scale
+                sprite = pygame.transform.scale(
+                    sprite, (new_width, new_height))
+
+            sprite_list.append(sprite)
+
+        return sprite_list
 
 
 #   ___ ___  __  __ ___  ___  _  _ ___ _  _ _____ ___
@@ -62,7 +200,6 @@ class obj_Entity:
 
 
 class com_creature:
-
     def __init__(self, name_instnace, hp=100, on_death=None):
         self.name = name_instnace
         self.max_hp = hp
@@ -72,8 +209,9 @@ class com_creature:
     def modify_hp(self, value):
         self.hp += value
 
-        message = self.name + "'s health is " + str(self.hp) + "/" + str(self.max_hp)
-        draw_message(message, Constants.COLOR_WHITE)
+        message = self.name + "'s health is " + \
+            str(self.hp) + "/" + str(self.max_hp)
+        game_message(message, constants.COLOR_WHITE)
 
         if self.hp <= 0:
             if self.on_death is not None:
@@ -81,7 +219,7 @@ class com_creature:
 
     def move(self, delta_X, delta_Y):
 
-        target_tile = (WORLD_MAP[self.owner.x + delta_X]
+        target_tile = (GAME.curret_map[self.owner.x + delta_X]
                        [self.owner.y + delta_Y])
 
         target = map_check_for_creatures(
@@ -95,8 +233,84 @@ class com_creature:
             self.owner.y += delta_Y
 
     def attack(self, target, damage):
-        game_message((self.name + " attacks " + target.creature.name + " for 60 damage!"), Constants.COLOR_WHITE)
+        game_message((self.name + " attacks " + target.creature.name +
+                      " for 60 damage!"), constants.COLOR_WHITE)
         target.creature.modify_hp(damage)
+
+
+class com_container:
+    def __init__(self, volume=10.0, inventory=None):
+
+        self.max_volume = volume
+
+        if inventory is None:
+            self.inventory = []
+        else:
+            self.inventory = inventory
+
+    # TODO Get names of everything in inventory
+
+    # TODO Get volume within container
+    @property
+    def volume(self):
+        return 0.0
+
+    # TODO Get weight of everything in inventory
+
+
+class com_item:
+
+    def __init__(self, weight=0.0, volume=0.0, use_function=None, value=None):
+        self.value = value
+        self.weight = weight
+        self.use_function = use_function
+        self.volume = volume
+
+    def take(self, entity):
+        if entity.container:
+            if entity.container.volume + self.volume > entity.container.max_volume:
+                game_message("Not enought room to pick up")
+            else:
+                entity.container.inventory.append(self.owner)
+                game_message("Picking up")
+                GAME.current_game_objects.remove(self.owner)
+                self.container = entity.container
+
+    def drop(self, x, y):
+        GAME.current_game_objects.append(self.owner)
+        self.container.inventory.remove(self.owner)
+        self.owner.x = x
+        self.owner.y = y
+        game_message("Item dropped!")
+
+    def use(self):
+        if self.use_function:
+            result = self.use_function(self.owner.container.owner, self.value)
+
+            if result is not None:
+                print("Use function failed")
+            else:
+                self.container.inventory.remove(self.owner)
+
+#    _   ___
+#   /_\ |_ _|
+#  / _ \ | |
+# /_/ \_\___|
+
+
+class ai_test:
+
+    def process_turn(self):
+        self.owner.creature.move(libtcodpy.random_get_int(
+            0, -1, 1), libtcodpy.random_get_int(0, -1, 1))
+
+
+def death_monster(monster):
+
+    game_message(monster.creature.name + " is dead!", constants.COLOR_RED)
+
+    monster.creature = None
+    monster.ai = None
 
 #  __  __   _   ___
 # |  \/  | /_\ | _ \
@@ -106,20 +320,20 @@ class com_creature:
 
 def map_create():
 
-    new_map = [[struct_Tile(True) for y in range(0, Constants.MAP_WIDTH)]
-               for x in range(0, Constants.MAP_WIDTH
+    new_map = [[struct_Tile(True) for y in range(0, constants.MAP_WIDTH)]
+               for x in range(0, constants.MAP_WIDTH
                               )]
 
     new_map[10][10].isWalkable = False
     new_map[10][15].isWalkable = False
 
-    for x in range(Constants.MAP_WIDTH):
+    for x in range(constants.MAP_WIDTH):
         new_map[x][0].isWalkable = False
-        new_map[x][Constants.MAP_HEIGHT - 1].isWalkable = False
+        new_map[x][constants.MAP_HEIGHT - 1].isWalkable = False
 
-    for y in range(Constants.MAP_HEIGHT):
+    for y in range(constants.MAP_HEIGHT):
         new_map[0][y].isWalkable = False
-        new_map[Constants.MAP_WIDTH - 1][y].isWalkable = False
+        new_map[constants.MAP_WIDTH - 1][y].isWalkable = False
 
     map_make_field_of_view(new_map)
 
@@ -131,7 +345,7 @@ def map_check_for_creatures(x, y, exclude_object=None):
     target = None
 
     if exclude_object:
-        for object in GAME_OBJECTS:
+        for object in GAME.current_game_objects:
             if(object is not exclude_object and
                object.x == x and
                object.y == y and
@@ -141,7 +355,7 @@ def map_check_for_creatures(x, y, exclude_object=None):
             if target:
                 return target
     else:
-        for object in GAME_OBJECTS:
+        for object in GAME.current_game_objects:
             if(object.x == x and
                object.y == y and
                object.creature):
@@ -154,11 +368,11 @@ def map_check_for_creatures(x, y, exclude_object=None):
 def map_make_field_of_view(map):
     global FIELD_OF_VIEW_MAP
 
-    FIELD_OF_VIEW_MAP = libtcodpy.map_new(
-        Constants.MAP_WIDTH, Constants.MAP_HEIGHT)
+    FIELD_OF_VIEW_MAP = libtcodpy.map.Map(
+        constants.MAP_WIDTH, constants.MAP_HEIGHT)
 
-    for y in range(Constants.MAP_HEIGHT):
-        for x in range(Constants.MAP_WIDTH):
+    for y in range(constants.MAP_HEIGHT):
+        for x in range(constants.MAP_WIDTH):
             libtcodpy.map_set_properties(FIELD_OF_VIEW_MAP, x, y,
                                          map[x][y].isWalkable, map[x][y].isWalkable)
 
@@ -174,10 +388,17 @@ def map_calculate_field_of_view():
             FIELD_OF_VIEW_MAP,
             PLAYER.x,
             PLAYER.y,
-            Constants.FIELD_OF_VIEW_RADIUS,
-            Constants.FIELD_OF_VIEW_LIGHT_WALLS,
-            Constants.FIELD_OF_VIEW_ALGORITHM)
+            constants.FIELD_OF_VIEW_RADIUS,
+            constants.FIELD_OF_VIEW_LIGHT_WALLS,
+            constants.FIELD_OF_VIEW_ALGORITHM)
 
+
+def map_objects_at_coordinates(x, y):
+
+    object_options = [obj for obj in GAME.current_game_objects
+                      if obj.x == x and obj.y == y]
+
+    return object_options
 
 #  ___ ___ _  _ ___  ___ ___ ___ _  _  ___
 # | _ \ __| \| |   \| __| _ \_ _| \| |/ __|
@@ -186,27 +407,25 @@ def map_calculate_field_of_view():
 
 
 def draw_game_canvas():
-
     global SURFACE_MAIN
+    SURFACE_MAIN.fill(constants.COLOR_DEFAULT_BACKGROUND)
+    draw_map(GAME.curret_map)
 
-    SURFACE_MAIN.fill(Constants.COLOR_DEFAULT_BACKGROUND)
-
-    draw_map(WORLD_MAP)
-
-    for obj in GAME_OBJECTS:
+    for obj in GAME.current_game_objects:
         obj.draw()
 
-    draw_debug()
+    ui.draw_debug(
+        SURFACE_MAIN,
+        "FOO",
+        ASSETS.DEFAULT_FONT)
 
     draw_message()
-
     pygame.display.update()
 
 
 def draw_map(map_to_draw):
-
-    for x in range(0, Constants.MAP_WIDTH):
-        for y in range(0, Constants.MAP_HEIGHT):
+    for x in range(0, constants.MAP_WIDTH):
+        for y in range(0, constants.MAP_HEIGHT):
 
             isVisible = libtcodpy.map_is_in_fov(FIELD_OF_VIEW_MAP, x, y)
 
@@ -216,74 +435,55 @@ def draw_map(map_to_draw):
 
                 if map_to_draw[x][y].isWalkable == True:
                     SURFACE_MAIN.blit(
-                        Constants.GROUND_SPRITE, (x*Constants.CELL_WIDTH, y*Constants.CELL_HEIGHT))
+                        ASSETS.GROUND_SPRITE, (x*constants.CELL_WIDTH, y*constants.CELL_HEIGHT))
                 else:
                     SURFACE_MAIN.blit(
-                        Constants.WALL_SPRITE, (x*Constants.CELL_WIDTH, y*Constants.CELL_HEIGHT))
+                        ASSETS.WALL_SPRITE, (x*constants.CELL_WIDTH, y*constants.CELL_HEIGHT))
             else:
 
                 if map_to_draw[x][y].isExplored == True:
                     SURFACE_MAIN.blit(
-                        Constants.GROUND_EXPLORED_SPRITE, (x*Constants.CELL_WIDTH, y*Constants.CELL_HEIGHT))
+                        ASSETS.GROUND_EXPLORED_SPRITE, (x*constants.CELL_WIDTH, y*constants.CELL_HEIGHT))
                 else:
                     SURFACE_MAIN.blit(
-                        Constants.WALL_EXPLORED_SPRITE, (x*Constants.CELL_WIDTH, y*Constants.CELL_HEIGHT))
+                        ASSETS.WALL_EXPLORED_SPRITE, (x*constants.CELL_WIDTH, y*constants.CELL_HEIGHT))
 
-def draw_debug():
-
-    draw_text(SURFACE_MAIN, "fps: " + str(int(CLOCK.get_fps())),
-              (0, 0), Constants.COLOR_WHITE, Constants.COLOR_BLACK)
 
 def draw_message():
-
-    if len(GAME_MESSAGES) <= Constants.NUM_MESSAGES:
-        messages_to_draw = GAME_MESSAGES
+    if len(GAME.game_message_history) <= constants.NUM_MESSAGES:
+        messages_to_draw = GAME.game_message_history
     else:
-        messages_to_draw = GAME_MESSAGES(-Constants.NUM_MESSAGES)
+        messages_to_draw = GAME.game_message_history[-(
+            constants.NUM_MESSAGES):]
 
-    text_height = helper_text_height(Constants.PIXEL_FONT)
+    text_height = helpers.helper_text_height(ASSETS.PIXEL_FONT)
 
-    start_Y = Constants.MAP_HEIGHT * Constants.CELL_HEIGHT - (Constants.NUM_MESSAGES * text_height)
-    
+    start_Y = constants.MAP_HEIGHT * constants.CELL_HEIGHT - \
+        (constants.NUM_MESSAGES * text_height)
+
     i = 0
 
     for message, color in messages_to_draw:
-
-        draw_text(SURFACE_MAIN, message, (0, start_Y + (i * text_height)), color, Constants.COLOR_BLACK)
+        ui.draw_text(
+            SURFACE_MAIN, message,
+            (0, start_Y + (i * text_height)),
+            ASSETS.DEFAULT_FONT,
+            color,
+            constants.COLOR_BLACK)
 
         i += 1
 
-def draw_text(display_surface, text_to_display, coordinates, color, background_color=None):
 
-    text_surface, text_rect = helper_text_objects(
-        text_to_display, color, background_color)
+# ___ ___ ___ ___ ___ _____ ___
+# | __| __| __| __/ __|_   _/ __|
+# | _|| _|| _|| _| (__  | | \__ \
+# |___|_| |_| |___\___| |_| |___/
 
-    text_rect = coordinates
+def cast_heal(target, value):
+    print("Target: " + target.name + "heald for  " + str(value))
 
-    display_surface.blit(text_surface, text_rect)
+    return None
 
-
-#  _  _ ___ _    ___ ___ ___  ___
-# | || | __| |  | _ \ __| _ \/ __|
-# | __ | _|| |__|  _/ _||   /\__ \
-# |_||_|___|____|_| |___|_|_\|___/
-
-def helper_text_objects(text, color, background_color):
-
-    if background_color:
-        text_surface = Constants.DEFAULT_FONT.render(
-            text, False, color, background_color)
-    else:
-        text_surface = Constants.DEFAULT_FONT.render(text, False, color)
-
-    return text_surface, text_surface.get_rect()
-
-def helper_text_height(font):
-
-    font_object = font.render('a', False, (0, 0, 0))
-    font_rect = font_object.get_rect()
-
-    return font_rect.height
 
 #   ___   _   __  __ ___
 #  / __| /_\ |  \/  | __|
@@ -293,89 +493,167 @@ def helper_text_height(font):
 
 def game_main_loop():
 
-    global FIELD_OF_VIEW_CALCULATE
-
     game_is_Running = True
-
-    player_action = "no-action"
+    game_action_preformed = False
+    player_action_preformed = False
+    user_action = "no-action"
 
     while game_is_Running:
 
-        player_action = Inputs.game_handle_inputs(PLAYER)
+        user_action = inputs.get_user_input()
+        game_action_preformed = game_actions(user_action)
 
-        map_calculate_field_of_view()
+        if game_action_preformed:
+            continue
 
-        if player_action == "QUIT":
-            game_is_Running = False
+        if IS_PAUSED or IN_INVENTORY:
+            CLOCK.tick(constants.FPS_LIMIT)
+            continue
 
-        if player_action == "player-moved":
-            FIELD_OF_VIEW_CALCULATE = True
+        player_action_preformed = player_actions(user_action)
 
-        if player_action != "no-action":
-            for obj in GAME_OBJECTS:
+        if user_action != "no-action":
+            for obj in GAME.current_game_objects:
                 if obj.ai:
-                    obj.ai.take_turn()
+                    obj.ai.process_turn()
 
         draw_game_canvas()
-
-        CLOCK.tick(Constants.FPS_LIMIT)
+        CLOCK.tick(constants.FPS_LIMIT)
 
     pygame.quit()
     exit()
 
-def game_message(message, color):
 
-    GAME_MESSAGES.append((message, color))
+def game_actions(user_action):
+    global IS_PAUSED
+    global IN_INVENTORY
 
-    print("Python Roguelike Tutorial - Part 12 - In Game Message Console -> 12:25 / 35:31 ")
+    if user_action == "QUIT":
+        game_is_Running = False
+    elif user_action == "PAUSED":
+        IS_PAUSED = not IS_PAUSED
+        ui.menu_pause(SURFACE_MAIN, IS_PAUSED, ASSETS.DEFAULT_FONT)
+        pygame.display.update()
+        return True
+    elif user_action == "INVENTORY":
+        IN_INVENTORY = not IN_INVENTORY
+        ui.menu_inventory(SURFACE_MAIN, PLAYER,
+                          IN_INVENTORY, ASSETS.PIXEL_FONT)
+        pygame.display.update()
+        return True
+
+
+def player_actions(user_action):
+    global FIELD_OF_VIEW_CALCULATE
+
+    map_calculate_field_of_view()
+
+    if user_action == "UP":
+        PLAYER.creature.move(0, -1)
+        FIELD_OF_VIEW_CALCULATE = True
+        return True
+    elif user_action == "LEFT":
+        PLAYER.creature.move(-1, 0)
+        FIELD_OF_VIEW_CALCULATE = True
+        return True
+    elif user_action == "DOWN":
+        PLAYER.creature.move(0, 1)
+        FIELD_OF_VIEW_CALCULATE = True
+        return True
+    elif user_action == "RIGHT":
+        PLAYER.creature.move(1, 0)
+        FIELD_OF_VIEW_CALCULATE = True
+        return True
+    elif user_action == "TAKE":
+        objects_at_player = map_objects_at_coordinates(PLAYER.x, PLAYER.y)
+        for obj in objects_at_player:
+            if obj.item:
+                obj.item.take(PLAYER)
+        return True
+    elif user_action == "DROP":
+        if len(PLAYER.container.inventory) > 0:
+            last_item_in_inventory = PLAYER.container.inventory[-1].item
+            if last_item_in_inventory:
+                last_item_in_inventory.drop(PLAYER.x, PLAYER.y)
+                return True
+    elif user_action == "USE":
+        if len(PLAYER.container.inventory) > 0:
+            last_item_in_inventory = PLAYER.container.inventory[-1].item
+            if last_item_in_inventory:
+                last_item_in_inventory.use_function()
+                return True
+
+    return False
+
+
+def game_message(message, color=constants.COLOR_WHITE):
+
+    GAME.game_message_history.append((message, color))
+
 
 def game_initialize():
 
     global SURFACE_MAIN
-    global WORLD_MAP
+    global GAME
+    global CLOCK
+    global FIELD_OF_VIEW_CALCULATE
     global PLAYER
     global ENEMY
-    global GAME_OBJECTS
-    global FIELD_OF_VIEW_CALCULATE
-    global CLOCK
-    global GAME_MESSAGES
+    global ASSETS
+    global IS_PAUSED
+    global IN_INVENTORY
 
     pygame.init()
 
-    CLOCK = pygame.time.Clock()
+    press_delay = 200
+    press_interval = 70
+    pygame.key.set_repeat(press_delay, press_interval)
 
     SURFACE_MAIN = pygame.display.set_mode(
-        (Constants.MAP_WIDTH * Constants.CELL_WIDTH,
-         Constants.MAP_HEIGHT * Constants.CELL_HEIGHT))
+        (constants.MAP_WIDTH * constants.CELL_WIDTH,
+         constants.MAP_HEIGHT * constants.CELL_HEIGHT))
 
-    WORLD_MAP = map_create()
+    GAME = obj_Game()
 
-    GAME_MESSAGES = []
-
-    game_message("test message 1", Constants.COLOR_WHITE)
-    game_message("test message 2", Constants.COLOR_WHITE)
-    game_message("test message 3", Constants.COLOR_WHITE)
-    game_message("test message 4", Constants.COLOR_RED)
+    CLOCK = pygame.time.Clock()
 
     FIELD_OF_VIEW_CALCULATE = True
 
+    ASSETS = struct_Assets()
+
+    IS_PAUSED = False
+    IN_INVENTORY = False
+
+    com_container_1 = com_container()
     com_creature_1 = com_creature("MAX")
+
     PLAYER = obj_Entity(
-        2, 2, "HUMAN", Constants.PLAYER_SPRITE, creature=com_creature_1)
+        2, 2, "HUMAN", ASSETS.PLAYER_ANIMATION,
+        creature=com_creature_1,
+        container=com_container_1)
 
-    com_creature_2 = com_creature("SOLID", on_death=AI.death_monster)
-    com_ai_1 = AI.Test()
+    com_item_1 = com_item(value=4, use_function=cast_heal)
+    com_creature_2 = com_creature("SOLID", on_death=death_monster)
+    com_ai_1 = ai_test()
     ENEMY = obj_Entity(
-        15, 10, "SNAKE", Constants.ENEMY_SPRITE, creature=com_creature_2, ai=com_ai_1)
+        15, 10, "SNAKE 1", ASSETS.ENEMY_ANIMATION,
+        creature=com_creature_2,
+        ai=com_ai_1,
+        item=com_item_1)
 
-    GAME_OBJECTS = [PLAYER, ENEMY]
+    com_item_2 = com_item(value=4, use_function=cast_heal)
+    com_creature_3 = com_creature("DUMB", on_death=death_monster)
+    ENEMY_2 = obj_Entity(
+        14, 10, "SNAKE 2", ASSETS.ENEMY_ANIMATION,
+        creature=com_creature_3,
+        item=com_item_2)
 
+    GAME.current_game_objects = [PLAYER, ENEMY, ENEMY_2]
 
-
-    #  __  __   _   ___ _  _
-    # |  \/  | /_\ |_ _| \| |
-    # | |\/| |/ _ \ | || .` |
-    # |_|  |_/_/ \_\___|_|\_|
+#  __  __   _   ___ _  _
+# |  \/  | /_\ |_ _| \| |
+# | |\/| |/ _ \ | || .` |
+# |_|  |_/_/ \_\___|_|\_|
 
 
 if __name__ == '__main__':
