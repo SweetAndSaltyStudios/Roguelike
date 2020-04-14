@@ -2,6 +2,8 @@ import constants
 import helpers
 import pygame
 
+currently_selected_index = 0
+
 def draw_debug(surface, debug_text, font):
     draw_text(surface, debug_text, (0, 0), font, constants.COLOR_WHITE, constants.COLOR_BLACK)
 
@@ -25,77 +27,57 @@ def draw_text(display_surface, text_to_display, coordinates, font, color = const
 #|_|  |_|___|_|\_|\___/|___/
           
                            
-def menu_pause(surface, is_paused, menu_text_font):
-    if is_paused:
-        window_width = constants.MAP_WIDTH * constants.CELL_WIDTH
-        window_height = constants.MAP_HEIGHT * constants.CELL_HEIGHT
-        menu_text = "PAUSED"
+def show_menu_pause(surface, menu_text_font):
+    window_width = constants.MAP_WIDTH * constants.CELL_WIDTH
+    window_height = constants.MAP_HEIGHT * constants.CELL_HEIGHT
+    menu_text = "PAUSED"
 
-        text_height = helpers.helper_text_height(menu_text_font)
-        text_width = helpers.helper_text_width(menu_text_font)
-        text_coordinates = (window_width / 2) - (text_width / 2), (window_height / 2) - (text_height / 2)
-        
-        draw_text(
-            surface,
-            menu_text, 
-            text_coordinates,
-            menu_text_font,
-            constants.COLOR_WHITE,
-            constants.COLOR_BLACK)
+    text_height = helpers.helper_text_height(menu_text_font)
+    text_width = helpers.helper_text_width(menu_text_font)
+    text_coordinates = (window_width / 2) - (text_width / 2), (window_height / 2) - (text_height / 2)
+    
+    draw_text(
+        surface,
+        menu_text, 
+        text_coordinates,
+        menu_text_font,
+        constants.COLOR_WHITE,
+        constants.COLOR_BLACK)
 
 
-def menu_inventory(surface, owner, in_inventory, menu_text_font):
-    if in_inventory:
+def show_menu_inventory(surface, owner, menu_text_font, scroll_direction = 0):
+    
+    global currently_selected_index 
 
-        window_width = constants.MAP_WIDTH * constants.CELL_WIDTH
-        window_height = constants.MAP_HEIGHT * constants.CELL_HEIGHT
+    currently_selected_index += scroll_direction
 
-        menu_width = 200
-        menu_height = 200
-        menu_X = (window_width / 2) - (menu_width / 2)
-        menu_Y = (window_height / 2) - (menu_height / 2)
-        menu_coordinates = (menu_X, menu_Y)
+    window_width = constants.MAP_WIDTH * constants.CELL_WIDTH
+    window_height = constants.MAP_HEIGHT * constants.CELL_HEIGHT
 
-        local_inventory_surface = pygame.Surface((menu_width, menu_height))
-        local_inventory_surface.fill(constants.COLOR_BLACK)
+    menu_width = 200
+    menu_height = 200
+    menu_X = (window_width / 2) - (menu_width / 2)
+    menu_Y = (window_height / 2) - (menu_height / 2)
+    menu_coordinates = (menu_X, menu_Y)
 
-        menu_text_horizontal_offset = 6
-        menu_text_height = helpers.helper_text_height(menu_text_font)
-        menu_text_color = constants.COLOR_WHITE
+    local_inventory_surface = pygame.Surface((menu_width, menu_height))
+    local_inventory_surface.fill(constants.COLOR_BLACK)
 
-        print_list = [obj.name_object for obj in owner.container.inventory]
+    menu_text_horizontal_offset = 6
+    menu_text_height = helpers.helper_text_height(menu_text_font)
+    menu_text_color = constants.COLOR_WHITE
 
-        ## Roguelike Tutorial - part 20 ->
-        # mouse_X, mouse_Y = pygame.mouse.get_pos()
+    item_list = [obj.name_object for obj in owner.container.inventory]
 
-        # mouse_relative_X = mouse_X - menu_X
-        # mouse_relative_Y = mouse_Y - menu_Y
-        # mouse_in_window = (mouse_relative_X > 0 and
-                            #  mouse_relative_Y > 0 and
-                            #  mouse_relative_X < menu_width and
-                            #  mouse_relative_XY < menu_height)
-        
-        # mouse_line_selection = mouse_relative_Y / menu_text_height
-        # print(mouse_line_selection)
-
-        for line, (name) in enumerate(print_list):
-            
-            # if line == mouse_line_selection and mouse_in_window:
-            #     draw_text(
-            #         local_inventory_surface,
-            #         name, 
-            #         (menu_text_horizontal_offset, 
-            #         (line * menu_text_height)),
-            #         menu_text_font,
-            #         menu_text_color,
-            #         constants.COLOR_RED)
-
+    if len(item_list) > 0:
+        print(currently_selected_index)
+        for item_index, (name) in enumerate(item_list):
             draw_text(
                 local_inventory_surface,
                 name, 
                 (menu_text_horizontal_offset, 
-                (line * menu_text_height)),
+                (item_index * menu_text_height)),
                 menu_text_font,
-                menu_text_color)
-
-        surface.blit(local_inventory_surface, menu_coordinates)
+                color = menu_text_color if currently_selected_index == item_index else constants.COLOR_RED)
+    
+    surface.blit(local_inventory_surface, menu_coordinates)

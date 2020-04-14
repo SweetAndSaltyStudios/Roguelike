@@ -416,7 +416,7 @@ def draw_game_canvas():
 
     ui.draw_debug(
         SURFACE_MAIN,
-        "FOO",
+        "FPS: " + str(constants.FPS_LIMIT),
         ASSETS.DEFAULT_FONT)
 
     draw_message()
@@ -501,18 +501,38 @@ def game_main_loop():
     while game_is_Running:
 
         user_action = inputs.get_user_input()
-        game_action_preformed = game_actions(user_action)
+        game_action_preformed = handle_game_actions(user_action)
 
-        if game_action_preformed:
-            continue
+        if IS_PAUSED:
+            ui.show_menu_pause(
+                SURFACE_MAIN, 
+                ASSETS.DEFAULT_FONT)
 
-        if IS_PAUSED or IN_INVENTORY:
+            pygame.display.update()
             CLOCK.tick(constants.FPS_LIMIT)
             continue
 
-        player_action_preformed = player_actions(user_action)
+        if IN_INVENTORY:
 
-        if user_action != "no-action":
+            if user_action == "UP":
+                scroll_direction = -1
+            elif user_action == "DOWN":
+                scroll_direction = 1
+            else: 
+                scroll_direction = 0
+
+            ui.show_menu_inventory(
+                SURFACE_MAIN, PLAYER,
+                ASSETS.PIXEL_FONT, 
+                scroll_direction)
+
+            pygame.display.update()
+            CLOCK.tick(constants.FPS_LIMIT)
+            continue
+
+        player_action_preformed = handle_player_actions(user_action)
+
+        if player_action_preformed:
             for obj in GAME.current_game_objects:
                 if obj.ai:
                     obj.ai.process_turn()
@@ -524,7 +544,7 @@ def game_main_loop():
     exit()
 
 
-def game_actions(user_action):
+def handle_game_actions(user_action):
     global IS_PAUSED
     global IN_INVENTORY
 
@@ -532,18 +552,15 @@ def game_actions(user_action):
         game_is_Running = False
     elif user_action == "PAUSED":
         IS_PAUSED = not IS_PAUSED
-        ui.menu_pause(SURFACE_MAIN, IS_PAUSED, ASSETS.DEFAULT_FONT)
-        pygame.display.update()
         return True
     elif user_action == "INVENTORY":
         IN_INVENTORY = not IN_INVENTORY
-        ui.menu_inventory(SURFACE_MAIN, PLAYER,
-                          IN_INVENTORY, ASSETS.PIXEL_FONT)
-        pygame.display.update()
         return True
 
+    return False
 
-def player_actions(user_action):
+
+def handle_player_actions(user_action):
     global FIELD_OF_VIEW_CALCULATE
 
     map_calculate_field_of_view()
