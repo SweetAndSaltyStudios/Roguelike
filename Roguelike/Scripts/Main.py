@@ -261,10 +261,10 @@ class com_container:
 class com_item:
 
     def __init__(self, weight=0.0, volume=0.0, use_function=None, value=None):
-        self.value = value
+        self.volume = volume
         self.weight = weight
         self.use_function = use_function
-        self.volume = volume
+        self.value = value
 
     def take(self, entity):
         if entity.container:
@@ -521,6 +521,10 @@ def game_main_loop():
             else: 
                 scroll_direction = 0
 
+            if user_action == "USE":
+                use_selected_item = True
+                print("USE")
+
             ui.show_menu_inventory(
                 SURFACE_MAIN, PLAYER,
                 ASSETS.PIXEL_FONT, 
@@ -555,6 +559,8 @@ def handle_game_actions(user_action):
         return True
     elif user_action == "INVENTORY":
         IN_INVENTORY = not IN_INVENTORY
+        return True
+    elif user_action == "USE":
         return True
 
     return False
@@ -658,7 +664,7 @@ def game_initialize():
         ai=com_ai_1,
         item=com_item_1)
 
-    com_item_2 = com_item(value=4, use_function=cast_heal)
+    com_item_2 = com_item(value=5, use_function=cast_heal)
     com_creature_3 = com_creature("DUMB", on_death=death_monster)
     ENEMY_2 = obj_Entity(
         14, 10, "SNAKE 2", ASSETS.ENEMY_ANIMATION,

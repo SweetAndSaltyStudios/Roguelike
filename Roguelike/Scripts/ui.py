@@ -47,10 +47,6 @@ def show_menu_pause(surface, menu_text_font):
 
 def show_menu_inventory(surface, owner, menu_text_font, scroll_direction = 0):
     
-    global currently_selected_index 
-
-    currently_selected_index += scroll_direction
-
     window_width = constants.MAP_WIDTH * constants.CELL_WIDTH
     window_height = constants.MAP_HEIGHT * constants.CELL_HEIGHT
 
@@ -66,18 +62,33 @@ def show_menu_inventory(surface, owner, menu_text_font, scroll_direction = 0):
     menu_text_horizontal_offset = 6
     menu_text_height = helpers.helper_text_height(menu_text_font)
     menu_text_color = constants.COLOR_WHITE
+    menu_text_selection_color = constants.COLOR_RED
 
+    global currently_selected_index 
+    
     item_list = [obj.name_object for obj in owner.container.inventory]
 
+    currently_selected_index += scroll_direction
+
+    if currently_selected_index < 0:
+        currently_selected_index = len(item_list) - 1
+    elif currently_selected_index > len(item_list) - 1:
+        currently_selected_index = 0
+
     if len(item_list) > 0:
-        print(currently_selected_index)
+
+        # print(currently_selected_index)
+
         for item_index, (name) in enumerate(item_list):
+
+            color = menu_text_selection_color if currently_selected_index == item_index else menu_text_color
+            
             draw_text(
                 local_inventory_surface,
                 name, 
                 (menu_text_horizontal_offset, 
                 (item_index * menu_text_height)),
                 menu_text_font,
-                color = menu_text_color if currently_selected_index == item_index else constants.COLOR_RED)
+                color)
     
     surface.blit(local_inventory_surface, menu_coordinates)
