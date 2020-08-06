@@ -3,9 +3,6 @@
 # \__ \\ \/\/ /| _|| _|  | |    / _ \| .` | |) | \__ \/ _ \| |__| |  \ V /  \__ \ | | | |_| | |) | | (_) \__ \
 # |___/ \_/\_/ |___|___| |_|   /_/ \_\_|\_|___/  |___/_/ \_\____|_|   |_|   |___/ |_|  \___/|___/___\___/|___/
 
-## TUTORIAL - PART 21 -USING ITEMS 23:37 ->
-## USING ITEM FUNCTION DOES NOT WORK!
-
 # 3rd party modules
 import tcod as libtcodpy
 import pygame
@@ -209,6 +206,10 @@ class com_creature:
     def modify_hp(self, value):
         self.hp += value
 
+        # Clamp max value
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
+
         message = self.name + "'s health is " + \
             str(self.hp) + "/" + str(self.max_hp)
         game_message(message, constants.COLOR_WHITE)
@@ -285,7 +286,7 @@ class com_item:
 
     def use(self):
         if self.use_function:
-            result = self.use_function(self.owner.container.owner, self.value)
+            result = self.use_function(self.container.owner, self.value)
 
             if result is not None:
                 print("Use function failed")
@@ -480,7 +481,23 @@ def draw_message():
 # |___|_| |_| |___\___| |_| |___/
 
 def cast_heal(target, value):
-    print("Target: " + target.name + "heald for  " + str(value))
+
+    if target == None:
+        print("There was no target!")
+        return
+
+    target_creature = target.creature
+
+    if target_creature == None:
+        print("There was no creature!")
+        return
+
+    if target.creature.hp == target.creature.max_hp:
+        print(target_creature.name + " the " + target.name_object + " is already at full health!")
+        return "CANCELED"
+    else:
+        print(target_creature.name + " the " + target.name_object + " healed for " + str(value))
+        target_creature.modify_hp(value)
 
     return None
 
@@ -505,7 +522,7 @@ def game_main_loop():
 
         if IS_PAUSED:
             ui.show_menu_pause(
-                SURFACE_MAIN, 
+                SURFACE_MAIN,
                 ASSETS.DEFAULT_FONT)
 
             pygame.display.update()
@@ -514,21 +531,7 @@ def game_main_loop():
 
         if IN_INVENTORY:
 
-            if user_action == "UP":
-                scroll_direction = -1
-            elif user_action == "DOWN":
-                scroll_direction = 1
-            else: 
-                scroll_direction = 0
-
-            if user_action == "USE":
-                use_selected_item = True
-                print("USE")
-
-            ui.show_menu_inventory(
-                SURFACE_MAIN, PLAYER,
-                ASSETS.PIXEL_FONT, 
-                scroll_direction)
+            handle_inventory_screen(user_action)
 
             pygame.display.update()
             CLOCK.tick(constants.FPS_LIMIT)
@@ -594,19 +597,37 @@ def handle_player_actions(user_action):
                 obj.item.take(PLAYER)
         return True
     elif user_action == "DROP":
+        return True
+    elif user_action == "USE":
+        return True
+    
+    return False
+
+
+def handle_inventory_screen(user_action):
+    if user_action == "UP":
+        scroll_direction = -1
+    elif user_action == "DOWN":
+        scroll_direction = 1
+    else:
+        scroll_direction = 0
+
+    if user_action == "USE":
+        if len(PLAYER.container.inventory) > 0:
+            last_item_in_inventory = PLAYER.container.inventory[-1].item
+            if last_item_in_inventory:
+                last_item_in_inventory.use()
+
+    if user_action == "DROP":
         if len(PLAYER.container.inventory) > 0:
             last_item_in_inventory = PLAYER.container.inventory[-1].item
             if last_item_in_inventory:
                 last_item_in_inventory.drop(PLAYER.x, PLAYER.y)
-                return True
-    elif user_action == "USE":
-        if len(PLAYER.container.inventory) > 0:
-            last_item_in_inventory = PLAYER.container.inventory[-1].item
-            if last_item_in_inventory:
-                last_item_in_inventory.use_function()
-                return True
 
-    return False
+    ui.show_menu_inventory(
+        SURFACE_MAIN, PLAYER,
+        ASSETS.PIXEL_FONT,
+        scroll_direction)
 
 
 def game_message(message, color=constants.COLOR_WHITE):

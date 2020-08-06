@@ -31,4 +31,4 @@ def get_user_input():
             elif(event.key == pygame.K_u):
                 return "USE"
 
-    return "no-action"
+    return "NO-ACTION"
